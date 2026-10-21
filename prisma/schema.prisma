@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                      String                 @id
+  email                   String                 @unique
+  name                    String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  emailVerified           Boolean                @default(false)
+  image                   String?
+  role                    Role                   @default(PARTICIPANT)
+  banned                  Boolean                @default(false)
+  banReason               String?
+  banExpires              DateTime?
+  sessions                Session[]
+  accounts                Account[]
+  authoredHackathons      Hackathon[]            @relation("HackathonAuthor")
+  hackathonParticipations HackathonParticipant[]
+
+  @@map("User")
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+enum Role {
+  PARTICIPANT
+  ADMIN
+}
+
+model Hackathon {
+  id           String                 @id @default(cuid())
+  name         String
+  description  String?
+  startDate    DateTime
+  endDate      DateTime
+  isActive     Boolean                @default(true)
+  authorId     String
+  author       User                   @relation("HackathonAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  participants HackathonParticipant[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  @@index([authorId])
+}
+
+model HackathonParticipant {
+  id          String    @id @default(cuid())
+  hackathonId String
+  userId      String
+  hackathon   Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt    DateTime  @default(now())
+
+  @@unique([hackathonId, userId])
+  @@index([userId])
+}
