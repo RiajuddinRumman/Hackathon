@@ -1,169 +1,56 @@
 # Hackathon API
 
-Hackathon API is a NestJS and PostgreSQL backend for managing hackathons,
-users, authentication, authorization, and participation.
+Hackathon API is a backend for running online hackathons. It lets
+administrators create and manage hackathons, and lets participants discover
+active hackathons and join them.
 
-The API provides:
+The project provides:
 
-1. Email and password authentication
-2. Session based authorization
+1. Email and password sign up and sign in
+2. Secure session based authentication
 3. Participant and administrator roles
-4. Hackathon creation and management
-5. Hackathon participation
-6. Prisma ORM database access
-7. Arcjet security protection
-8. Global request validation
-9. Consistent successful response formatting
-10. NestJS observability instrumentation
+4. Hackathon creation, reading, updating, and deletion
+5. Hackathon participation with duplicate join protection
+6. PostgreSQL persistence through Prisma ORM
+7. Request validation and consistent successful responses
+8. Arcjet security protection
+9. Application observability through NestJS Observe
 
-## Technology stack
+## How the application works
 
-### Application framework
+There are two types of users.
 
-| Technology | Purpose |
-| --- | --- |
-| Node.js | JavaScript runtime |
-| TypeScript | Application language |
-| NestJS 12 | Backend framework |
-| Express | HTTP adapter used by NestJS |
-| RxJS | Observable support used by NestJS interceptors |
+### Participant
 
-The repository conventions describe NestJS 11, but the installed application
-packages use NestJS 12.
+Every new account is a participant by default.
 
-### Authentication and authorization
+Participants can:
 
-| Package | Purpose |
-| --- | --- |
-| `better-auth` | Authentication, sessions, cookies, and user accounts |
-| `@thallesp/nestjs-better-auth` | NestJS Better Auth integration, global authentication guard, session decorator, and role decorator |
+1. Sign up and sign in
+2. View their own account
+3. Read user and Hackathon information
+4. Join an active Hackathon that has not ended
 
-Authentication uses email and password sign up and sign in. Sessions are stored
-in PostgreSQL and use secure HTTP only cookies in the normal browser flow.
+### Administrator
 
-### Database
+Administrators manage the Hackathon platform.
 
-| Package | Purpose |
-| --- | --- |
-| `prisma` | Prisma CLI, schema management, formatting, migrations, and client generation |
-| `@prisma/client` | Type safe database client |
-| `@prisma/adapter-pg` | PostgreSQL driver adapter for Prisma |
-| `pg` | PostgreSQL connection pool |
+Administrators can:
 
-The application uses a direct PostgreSQL connection through `PrismaPg`. The
-database URL is configured through `DATABASE_URL` in the local environment.
-Never commit `.env` or expose database credentials.
+1. View all users
+2. Create Hackathons
+3. Update Hackathons
+4. Delete Hackathons
 
-### Security and request controls
+Users cannot choose `ADMIN` during sign up. This prevents a new user from
+promoting themselves.
 
-| Package | Purpose |
-| --- | --- |
-| `@arcjet/node` | Arcjet Shield WAF, token bucket rate limiting, and bot detection |
-| `class-validator` | DTO validation decorators |
-| `class-transformer` | Request transformation, including string dates to `Date` values |
-| `reflect-metadata` | Decorator metadata support |
+## Main API routes
 
-### Observability and tooling
+All application routes require an authenticated session unless the route is
+explicitly public.
 
-| Package | Purpose |
-| --- | --- |
-| `@nestjs/observe` | Distributed tracing, metrics, logging, and request observability |
-| `@nestjs/config` | Environment configuration |
-| `oxlint` | Type aware linting |
-| `prettier` | Source formatting |
-| `jest` | Unit testing |
-| `@nestjs/testing` | NestJS testing utilities |
-| `supertest` | HTTP testing support |
-| `@nestjs/cli` | NestJS build and development commands |
-| `typescript` | Type checking and compilation |
-
-## Project structure
-
-```text
-src/
-  auth/
-    auth.ts
-    auth.module.ts
-  common/
-    decorators/
-      arcjet-public.decorator.ts
-      response-message.decorator.ts
-    guards/
-      arcjet.guard.ts
-    interceptors/
-      response.interceptor.ts
-    validators/
-      is-after-date.validator.ts
-      is-future-date.validator.ts
-  lib/
-    arcjet/
-      arcjet.module.ts
-      arcjet.service.ts
-    database/
-      prisma.module.ts
-      prisma.service.ts
-  module/
-    hackathon/
-      dto/
-        create-hackathon.dto.ts
-        update-hackathon.dto.ts
-      hackathon.controller.ts
-      hackathon.service.ts
-      hackathon.module.ts
-  users/
-    user.controller.ts
-    users.controller.ts
-    users.service.ts
-  app.controller.ts
-  app.module.ts
-  app.service.ts
-  main.ts
-
-prisma/
-  schema.prisma
-  migrations/
-
-prisma.config.ts
-```
-
-## Application bootstrap workflow
-
-The application starts in [src/main.ts](./src/main.ts).
-
-1. NestJS creates the Express application.
-2. Better Auth requires `bodyParser: false`, so the application keeps the raw
-   request body available to the authentication integration.
-3. The global validation pipe transforms and validates DTOs.
-4. The global Arcjet guard evaluates Shield, rate limiting, and public route bot
-   detection.
-5. Better Auth registers its global authentication guard through
-   `AuthModule.forRootAsync`.
-6. The global response interceptor wraps successful responses.
-7. NestJS starts listening on `PORT`, or port `3000` by default.
-
-The global Better Auth guard protects routes unless a route uses the
-integration's anonymous access decorator. The root route is marked public for
-Arcjet's route policy through `@ArcjetPublic()`. That decorator only controls
-Arcjet's public client. Authentication behavior is handled by Better Auth.
-
-## Authentication workflow
-
-Better Auth is configured in [src/auth/auth.ts](./src/auth/auth.ts).
-
-1. A user signs up with a name, email, and password.
-2. Better Auth creates a `User` record and a password `Account` record.
-3. The admin plugin assigns `PARTICIPANT` by default.
-4. The role field is not accepted from the sign up request.
-5. Better Auth creates a database backed session.
-6. The session token is returned as an HTTP only cookie.
-7. Protected routes read the session through the NestJS Better Auth guard.
-8. Controllers can read the current session with `@Session()`.
-
-The configured session lifetime is seven days. Session activity can refresh
-once per day. Trusted origins come from `BETTER_AUTH_TRUSTED_ORIGINS`, with
-`http://localhost:3000` as the local default.
-
-Useful authentication routes include:
+### Authentication
 
 ```text
 POST /api/auth/sign-up/email
@@ -172,91 +59,126 @@ POST /api/auth/sign-out
 GET  /api/auth/ok
 ```
 
-Example sign up request:
+### Users
 
-```json
-{
-  "name": "Participant User",
-  "email": "participant@example.com",
-  "password": "StrongPassword123!"
-}
+```text
+GET /users/me
+GET /user/:id
+GET /user/all
 ```
 
-The following is intentionally rejected:
+`GET /user/all` is available only to administrators. `GET /user/:id` returns
+one user or a `404 Not Found` response.
 
-```json
-{
-  "name": "Admin User",
-  "email": "admin@example.com",
-  "password": "StrongPassword123!",
-  "role": "ADMIN"
-}
+### Hackathons
+
+```text
+POST   /hackathon
+GET    /hackathon
+GET    /hackathon/:id
+PATCH  /hackathon/:id
+DELETE /hackathon/:id
+POST   /hackathon/:id?join
 ```
 
-An administrator must be assigned through a controlled administrative process.
-Clients cannot promote themselves during sign up.
+Administrators can create, update, and delete Hackathons. Authenticated users
+can read them. Participants can join a Hackathon with the join route.
 
-## Users and roles
+The join operation checks that:
 
-### Participant
+1. The Hackathon exists
+2. `isActive` is `true`
+3. The end date has not passed
+4. The participant has not already joined
 
-`PARTICIPANT` is the default role for every new user.
+The database also enforces a unique combination of `hackathonId` and `userId`,
+so duplicate participation is prevented even when requests arrive at the same
+time.
 
-Participants can:
+## Technology used
 
-1. Read their own session through `GET /users/me`.
-2. Read one user through `GET /user/:id`.
-3. Read the hackathon list.
-4. Read one hackathon.
-5. Join an active hackathon that has not ended.
+### Backend
 
-### Administrator
+1. Node.js
+2. TypeScript
+3. NestJS 12
+4. Express
+5. RxJS
 
-`ADMIN` is the administrative role.
+### Authentication
 
-Administrators can:
+1. `better-auth` for authentication, sessions, cookies, and accounts
+2. `@thallesp/nestjs-better-auth` for NestJS integration, session access,
+   authentication guards, and role checks
 
-1. Read all users through `GET /user/all`.
-2. Create hackathons.
-3. Update hackathons.
-4. Delete hackathons.
+### Database
 
-Role protection uses `@Roles(['ADMIN'])` and
-`@Roles(['PARTICIPANT'])` from `@thallesp/nestjs-better-auth`. The
-authentication guard is global, so controllers do not need to register the
-same guard again.
+1. PostgreSQL
+2. Prisma ORM
+3. `@prisma/client`
+4. `@prisma/adapter-pg`
+5. `pg`
 
-## Hackathon data model
+### Security
 
-The Prisma schema is defined in [prisma/schema.prisma](./prisma/schema.prisma).
+1. `@arcjet/node`
+2. Arcjet Shield WAF
+3. Arcjet token bucket rate limiting
+4. Arcjet bot detection for public routes
+
+### Validation and application support
+
+1. `class-validator`
+2. `class-transformer`
+3. `@nestjs/config`
+4. `@nestjs/observe`
+5. `reflect-metadata`
+6. `rxjs`
+
+### Development tools
+
+1. NestJS CLI
+2. TypeScript
+3. Jest
+4. NestJS testing utilities
+5. Supertest
+6. Oxlint
+7. Prettier
+
+## Project structure
+
+```text
+src/
+  auth/                         Better Auth configuration
+  common/                       Shared guards, decorators, interceptors, validators
+  lib/arcjet/                   Arcjet module and service
+  lib/database/                 Prisma module and service
+  module/hackathon/             Hackathon module, controller, service, and DTOs
+  users/                        User controllers and service
+  app.module.ts                 Root NestJS module
+  main.ts                       Application bootstrap
+
+prisma/
+  schema.prisma                 Database models
+  migrations/                   Database migration history
+
+prisma.config.ts                Prisma 7 configuration
+```
+
+## Database models
+
+The database schema is in [prisma/schema.prisma](./prisma/schema.prisma).
 
 ### User
 
-Users include:
-
-```text
-id
-email
-name
-role
-emailVerified
-image
-banned
-banReason
-banExpires
-createdAt
-updatedAt
-```
-
-Users also relate to sessions, accounts, authored hackathons, and
-hackathon participation records.
+Users contain their identity, email, role, account status, sessions, and
+authentication accounts.
 
 ### Hackathon
 
-A hackathon includes:
+A Hackathon contains:
 
 ```text
-id
 name
 description
 startDate
@@ -267,76 +189,27 @@ createdAt
 updatedAt
 ```
 
-Each hackathon belongs to one author through `authorId`.
+Each Hackathon belongs to the user who created it.
 
 ### HackathonParticipant
 
-Participation includes:
+This model connects a user to a Hackathon:
 
 ```text
-id
 hackathonId
 userId
 joinedAt
 ```
 
-The database enforces this rule:
+The schema uses this constraint:
 
 ```prisma
 @@unique([hackathonId, userId])
 ```
 
-This prevents a user from joining the same hackathon more than once, even if
-two requests arrive at nearly the same time.
+## Response format
 
-## API routes
-
-All routes require an authenticated session unless explicitly stated
-otherwise.
-
-### User routes
-
-| Method | Route | Access | Description |
-| --- | --- | --- | --- |
-| `GET` | `/users/me` | Authenticated users | Returns the current session user |
-| `GET` | `/user/all` | Administrators | Returns all users |
-| `GET` | `/user/:id` | Authenticated users | Returns one user or `404` |
-
-Sensitive account fields such as passwords, access tokens, refresh tokens, and
-session records are not selected in user responses.
-
-### Hackathon routes
-
-| Method | Route | Access | Description |
-| --- | --- | --- | --- |
-| `POST` | `/hackathon` | Administrators | Creates a hackathon |
-| `GET` | `/hackathon` | Authenticated users | Returns all hackathons |
-| `GET` | `/hackathon/:id` | Authenticated users | Returns one hackathon or `404` |
-| `PATCH` | `/hackathon/:id` | Administrators | Updates a hackathon |
-| `DELETE` | `/hackathon/:id` | Administrators | Deletes a hackathon |
-| `POST` | `/hackathon/:id?join` | Participants | Joins a hackathon |
-
-The create route takes the author ID from the logged in session. Clients cannot
-choose or override the author ID.
-
-The join route checks:
-
-1. The hackathon exists.
-2. The hackathon is active.
-3. The end date has not passed.
-4. The user has not already joined.
-
-It returns `400 Bad Request` when the user has already joined, and relies on
-the database composite unique constraint to handle concurrent duplicate
-requests safely.
-
-## Request and response format
-
-### Successful responses
-
-The global response interceptor in
-[src/common/interceptors/response.interceptor.ts](./src/common/interceptors/response.interceptor.ts)
-wraps every successful response:
+Successful responses are wrapped by a global interceptor:
 
 ```json
 {
@@ -346,7 +219,7 @@ wraps every successful response:
 }
 ```
 
-Write operations use the `@ResponseMessage()` decorator:
+Write operations use custom messages, for example:
 
 ```json
 {
@@ -356,16 +229,7 @@ Write operations use the `@ResponseMessage()` decorator:
 }
 ```
 
-The decorator is defined in
-[src/common/decorators/response-message.decorator.ts](./src/common/decorators/response-message.decorator.ts).
-
-### Validation errors
-
-The global validation pipe in [src/main.ts](./src/main.ts) uses
-`class-validator` and `class-transformer`.
-
-Validation errors are returned as a `400 Bad Request` with property and
-message entries:
+Validation errors are returned as clean property and message entries:
 
 ```json
 {
@@ -380,117 +244,85 @@ message entries:
 }
 ```
 
-The Hackathon DTO validates:
+## Security
 
-1. `name` as a required string with at least three characters.
-2. `description` as an optional string between ten and one thousand
-   characters.
-3. `startsAt` as a future date.
-4. `endsAt` as a future date after `startsAt`.
-5. `isActive` as an optional boolean.
+Arcjet is registered as a global NestJS guard.
 
-`@Type(() => Date)` converts incoming date strings into JavaScript `Date`
-values before validation.
+It provides:
 
-Errors raised by NestJS exceptions retain the normal NestJS error shape. The
-successful response interceptor does not rewrite exception responses.
+1. Shield WAF protection
+2. Token bucket rate limiting
+3. AI bot detection for routes marked public
+4. Explicit `403 Forbidden` responses for blocked requests
+5. Explicit `429 Too Many Requests` responses for rate limits
 
-## Security workflow
+Better Auth also registers a global authentication guard. Routes use
+`@Roles(['ADMIN'])` and `@Roles(['PARTICIPANT'])` where a specific role is
+required.
 
-Arcjet is configured in [src/lib/arcjet/arcjet.service.ts](./src/lib/arcjet/arcjet.service.ts).
+## Environment setup
 
-The global Arcjet guard applies:
-
-1. Shield WAF protection in live mode.
-2. Token bucket rate limiting with a capacity of 100 requests.
-3. A refill rate of 10 requests every 60 seconds.
-4. AI bot detection on routes marked public for Arcjet.
-
-Arcjet denials return:
-
-```text
-403 Forbidden
-```
-
-Rate limit denials return:
-
-```text
-429 Too Many Requests
-```
-
-Arcjet requires `ARCJET_KEY` to be configured. The service fails during
-startup when the key is missing rather than silently running without the
-security policy.
-
-## Environment variables
-
-Create a local `.env` file and provide values similar to:
+Create a local `.env` file:
 
 ```env
 DATABASE_URL=postgresql://user:password@host:5432/database?sslmode=require
 ARCJET_KEY=your_arcjet_key
-BETTER_AUTH_SECRET=your_better_auth_secret
+BETTER_AUTH_SECRET=your_secret_at_least_32_characters_long
 BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_TRUSTED_ORIGINS=http://localhost:3000
 PORT=3000
 ```
 
-Do not copy real credentials into this file in documentation, commits, issue
-reports, or chat messages.
+Never commit `.env` or share real credentials. `DATABASE_URL` is used by both
+Prisma and the PostgreSQL runtime adapter.
 
-The Prisma configuration in [prisma.config.ts](./prisma.config.ts) reads
-`DATABASE_URL`. The runtime Prisma service uses the same variable to create a
-PostgreSQL pool.
+## Run the project
 
-## Local setup
-
-### Install dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### Format the Prisma schema
+Format the Prisma schema:
 
 ```bash
 npm run db:format
 ```
 
-### Apply migrations
-
-For development:
+Apply a development migration:
 
 ```bash
 npm run db:migrate -- --name your_migration_name
 ```
 
-### Generate Prisma Client
+Generate Prisma Client:
 
 ```bash
 npm run db:generate
 ```
 
-### Start the application
+Start the application:
 
 ```bash
 npm start
 ```
 
-Development watch mode:
+For watch mode:
 
 ```bash
 npm run start:dev
 ```
 
-The default local URL is:
+The local server runs at:
 
 ```text
 http://localhost:3000
 ```
 
-## Example requests
+## Example request flow
 
-### Sign up
+### 1. Create an account
 
 ```bash
 curl -i -c cookies.txt \
@@ -503,7 +335,9 @@ curl -i -c cookies.txt \
   }'
 ```
 
-### Sign in
+New accounts receive the `PARTICIPANT` role.
+
+### 2. Sign in
 
 ```bash
 curl -i -c cookies.txt \
@@ -515,17 +349,17 @@ curl -i -c cookies.txt \
   }'
 ```
 
-### Read the current user
+### 3. Read the current user
 
 ```bash
 curl -b cookies.txt http://localhost:3000/users/me
 ```
 
-### Create a hackathon as an administrator
+### 4. Create a Hackathon as an administrator
 
 ```bash
 curl -X POST http://localhost:3000/hackathon \
-  -b cookies.txt \
+  -b admin-cookies.txt \
   -H "Content-Type: application/json" \
   -d '{
     "name": "AI Innovation Challenge",
@@ -536,47 +370,118 @@ curl -X POST http://localhost:3000/hackathon \
   }'
 ```
 
-### Read hackathons
+The author ID comes from the authenticated administrator session. It is not
+accepted from the request body.
+
+### 5. Read Hackathons
 
 ```bash
 curl -b cookies.txt http://localhost:3000/hackathon
 ```
 
-### Join a hackathon as a participant
+### 6. Join a Hackathon
 
 ```bash
-curl -X POST "http://localhost:3000/hackathon/HACKATHON_ID?join" \
+curl -X POST \
+  "http://localhost:3000/hackathon/HACKATHON_ID?join" \
   -b cookies.txt
 ```
 
-The `?join` query marker is required by the current route contract.
+## How the project was built
 
-### Sign out
+The project was built in the following stages.
 
-```bash
-curl -X POST http://localhost:3000/api/auth/sign-out \
-  -b cookies.txt
-```
+### Stage 1: Create the NestJS application
 
-## Database commands
+The project started as a NestJS TypeScript API using the Express adapter.
+The standard NestJS module, controller, service, and test structure was kept
+as the application grew.
 
-The database scripts are defined in [package.json](./package.json):
+### Stage 2: Add Arcjet security
 
-```bash
-npm run db:format
-npm run db:migrate -- --name your_migration_name
-npm run db:generate
-npx prisma migrate status
-```
+Arcjet MCP tools were used to inspect the Arcjet workspace and integration
+options. The application then received:
 
-The current Prisma migrations create the Better Auth tables, role fields,
-administrative fields, and Hackathon participation tables.
+1. A global `ArcjetModule`
+2. An injected `ArcjetService`
+3. A global `ArcjetGuard`
+4. Shield WAF protection
+5. Token bucket rate limiting
+6. AI bot detection for public routes
+7. Explicit error responses for denied requests
 
-## Testing and quality checks
+The official NestJS Arcjet package was not used because it did not support the
+installed NestJS version. The Node SDK was integrated through a NestJS service
+and guard instead.
 
-The project uses Jest with NestJS testing utilities.
+### Stage 3: Add Prisma and PostgreSQL
 
-Run the unit test suite:
+Prisma documentation and Prisma tools were used to configure PostgreSQL.
+The application received:
+
+1. A Prisma schema
+2. A Prisma 7 configuration file
+3. A global `PrismaModule`
+4. An injected `PrismaService`
+5. A PostgreSQL pool with `PrismaPg`
+6. Better Auth database tables
+7. Prisma migration history
+8. Generated Prisma Client
+
+### Stage 4: Add Better Auth
+
+The Better Auth NestJS integration guide was used to add:
+
+1. Email and password authentication
+2. Database backed sessions
+3. HTTP only session cookies
+4. Protected routes by default
+5. `PARTICIPANT` and `ADMIN` roles
+6. A default participant role
+7. Role checks through the Better Auth roles decorator
+8. The protected `/users/me` route
+
+The NestJS integration requires the application to use
+`bodyParser: false`, which is configured in `src/main.ts`.
+
+### Stage 5: Add users and Hackathons
+
+The users module was expanded with user lookup routes. The Hackathon module
+was then built with:
+
+1. Prisma Hackathon models
+2. Create and update DTOs
+3. Administrator protected write routes
+4. Authenticated read routes
+5. Session based author assignment
+6. Participant join logic
+7. Duplicate join protection
+8. Active and end date checks
+
+### Stage 6: Add validation and response handling
+
+Global request handling was added in `src/main.ts`:
+
+1. `ValidationPipe` for DTO validation
+2. `class-transformer` date conversion
+3. Clean validation error objects
+4. A global response interceptor
+5. The `@ResponseMessage()` decorator
+
+Custom validators were added for future dates and correct Hackathon date order.
+
+### Stage 7: Review and verify behavior
+
+The request pipeline was reviewed for logical errors and unhandled cases.
+This review found and fixed:
+
+1. Static date validation that became stale after application startup
+2. Missing validation that `endsAt` must be after `startsAt`
+3. Duplicate registration of the Better Auth guard on controllers
+
+## Testing
+
+Run the unit tests:
 
 ```bash
 npm test
@@ -588,274 +493,83 @@ Run tests serially:
 npm test -- --runInBand
 ```
 
+Run the build:
+
+```bash
+npm run build
+```
+
 Run linting:
 
 ```bash
 npm run lint
 ```
 
-Run the TypeScript and NestJS build:
+Check migration status:
 
 ```bash
-npm run build
+npx prisma migrate status
 ```
 
-Run end to end tests when configured:
+The tests currently verify that:
 
-```bash
-npm run test:e2e
-```
+1. The root controller is created correctly
+2. The Hackathon controller is created with mocked dependencies
+3. The Hackathon service is created with a mocked Prisma service
+4. The application compiles successfully
+5. Type aware linting passes
+6. Prisma migrations are applied
 
-Run coverage:
+Manual request checks verified:
 
-```bash
-npm run test:cov
-```
+1. Unauthenticated requests return `401`
+2. Participant accounts receive the default role
+3. Clients cannot submit `ADMIN` during sign up
+4. Participants cannot access administrator routes
+5. Unknown IDs return `404`
+6. Inactive Hackathons cannot be joined
+7. Ended Hackathons cannot be joined
+8. Duplicate joins return `400`
+9. Successful writes include custom response messages
 
-### Test cases handled
+The unit tests mock infrastructure dependencies so they remain fast and
+isolated. Prisma migrations and request smoke tests verify integration
+behavior.
 
-The current test suite verifies that:
+## Skills and MCP servers used
 
-1. The root controller is created correctly.
-2. The Hackathon controller is created correctly with mocked Prisma and
-   authentication dependencies.
-3. The Hackathon service is created correctly with a mocked Prisma service.
-4. The application builds successfully.
-5. Type aware linting passes.
-6. Prisma migrations are applied and the database is up to date.
+### Skills
 
-Manual smoke checks also covered:
+The implementation used these skills:
 
-1. Unauthenticated access returns `401`.
-2. Authenticated participant sign up receives the `PARTICIPANT` role.
-3. Sending a role during sign up is rejected.
-4. Authenticated sessions can access `/users/me`.
-5. Participant users cannot access administrator routes.
-6. Hackathon creation uses the logged in session user as author.
-7. Unknown user and hackathon IDs return `404`.
-8. Joining an inactive or ended hackathon returns `400`.
-9. Duplicate participation returns `400`.
-10. Successful writes include custom response messages.
+1. `architect`, to make and record the Better Auth architecture decisions
+2. `better-auth-best-practices`, to follow the installed Better Auth version
+3. `arcjet`, to integrate Arcjet protection
+4. `develop`, to implement the application features
+5. `document`, to prepare this project documentation
 
-The tests use mocks for isolated unit tests. Database behavior is also
-validated through Prisma migration and live request smoke checks.
+### MCP servers
 
-## Imports and module responsibilities
+The implementation used these MCP servers:
 
-### External imports
+1. Arcjet MCP Server, to inspect Arcjet teams, sites, rules, guards, and
+   protection configuration
+2. Prisma MCP Server, to inspect Prisma projects and databases, create
+   connection information, and work with Prisma Postgres
+3. GitHub MCP Server, available for repository and project reference
 
-The source imports these external APIs:
+The implementation also used official documentation and local package
+documentation for NestJS, Prisma, Better Auth, and Arcjet.
 
-```text
-@nestjs/common
-@nestjs/core
-@nestjs/config
-@nestjs/testing
-@nestjs/observe
-@prisma/client
-@prisma/adapter-pg
-@thallesp/nestjs-better-auth
-better-auth
-better-auth/adapters/prisma
-better-auth/plugins/admin
-@arcjet/node
-class-validator
-class-transformer
-pg
-rxjs
-```
-
-### Internal imports
-
-The application imports these local modules:
-
-```text
-AppModule
-AppController
-AppService
-AppAuthModule
-createAuth
-UsersModule
-UsersController
-UserController
-UsersService
-HackathonModule
-HackathonController
-HackathonService
-CreateHackathonDto
-UpdateHackathonDto
-PrismaModule
-PrismaService
-ArcjetModule
-ArcjetService
-ArcjetGuard
-ArcjetPublic
-ResponseMessage
-ResponseInterceptor
-IsFutureDate
-IsAfterDate
-```
-
-Infrastructure integrations use global NestJS modules and constructor
-injection. Services are not instantiated directly by feature code.
-
-## Skills and development workflows used
-
-The implementation used these documented skills and workflows:
-
-1. `arcjet`, to configure Arcjet Node protection, Shield WAF, rate limiting,
-   bot detection, and request denials.
-2. `architect`, to define the Better Auth integration before implementation.
-3. `better-auth-best-practices`, to configure Better Auth according to the
-   installed version and NestJS integration requirements.
-4. `develop`, to implement the approved authentication, users, Hackathon,
-   DTO, validation, and request pipeline changes.
-5. Prisma ORM guidance, to create the Prisma schema, PostgreSQL adapter,
-   migrations, and generated client.
-6. `document`, to prepare repository documentation from the implemented
-   project behavior.
-
-The architecture decisions included database backed Better Auth sessions,
-secure HTTP only cookies, protected routes by default, environment based
-trusted origins, and administrator and participant roles.
-
-## Original implementation prompts
-
-The following prompts were the primary prompts that generated the
-implementation. Follow up questions and troubleshooting messages are not
-included.
-
-### Arcjet
-
-```text
-Add Arcjet protection to my app
-```
-
-```text
-Use the Arcjet MCP tools to check how to integrate Arcjet in this NestJS project.
-```
-
-```text
-Install the Arcjet NestJS/Node SDK dependency.
-Add ARCJET_KEY to the environment configuration.
-Create a dedicated global ArcjetModule and injected ArcjetService.
-Add a NestJS guard or interceptor that calls Arcjet for incoming requests.
-Configure initial protection rules, typically:
-Shield/WAF protection
-Rate limiting
-Bot detection for public endpoints
-Return explicit HTTP responses for denied Arcjet decisions.
-Validate with the project’s build and tests.
-```
-
-```text
-Add Arcjet Shield WAF
-```
-
-### Prisma and database
-
-```text
-Create a new NestJS API with Prisma ORM, seed it, and deploy it to Prisma Compute.
-```
-
-```text
-Add DATABASE_URL in .env
-```
-
-The Prisma work was later integrated into the existing repository with a
-global Prisma module, injected Prisma service, PostgreSQL adapter, schema,
-migrations, and generated client.
-
-### Better Auth
-
-```text
-/architect read # NestJS Integration (/docs/integrations/nestjs)
-
-Integrate Better Auth with NestJS.
-```
-
-```text
-Follow the NestJS integration guide exactly. Users should have a role, either PARTICIPANT or ADMIN defaulting to PARTICIPANT, and it can't be set during sign-up.
-
-Then migrate and regenarate the DB.
-```
-
-### Users and Hackathons
-
-```text
-Hold the user module with two endpoints:
-Get/user/all, which needs to return all users (admin only),
-Get/user/id, which returns a single user by ID and throws a not found exception if not found.
-
-Use Prisma service for database access.
-Use the auth guard for roles decorator from @thallesp/nestjs-better-auth for route protection.
-```
-
-```text
-Create a global response interceptor that wraps every response in {statusCode, message, data}.
-
-Support a @ResponseMessage decorator for custom message, defaulting to "Success".
-Write it globally in main.ts.
-```
-
-```text
-Create a Hackathon and HackathonParticipant Prisma schema.
-
-Hackathon has name, optional description, start & end dates, is active, and belongs to a User author.
-
-Hackathon Participant tracks which user joined which hackathon with a unique constraint on hackathonId + userId.
-
-Then run db:format, db:migrate, db:generate.
-```
-
-```text
-Install class-validator and class-transformer.
-
-Set up a global validation pipe in main.ts that returns clean validation errors as an array of {property, message} objects using a bad request exception.
-```
-
-```text
-Create a Hackathon DTO with:
-
-name: minimum 3 characters
-optional description: minimum 10, maximum 1000 characters
-startsAt and endsAt as future dates
-Optional isActive: boolean
-
-Use @Type(() => Date) to transform date strings.
-```
-
-```text
-Build the Hackathon CRUD service and controller.
-
-Admins can create, update, and delete, and everyone else can read.
-
-Pass the logged-in user's ID as author ID when creating.
-
-Use auth-guard and roles from the nestjs-better-auth package.
-
-Add a response message on write operations.
-```
-
-```text
-Add a POST /hackathon/:id?join endpoint. Participant only.
-
-We want to check the hackathon exists, that is active is set to true, and endsAt hasn't passed.
-
-Prevent duplicate joins using the unique constratin on hackathon ID plus the user id. Throw a bad request exception if already joined.
-
-Create the Hackathon Participant record and return it.
-```
-
-## Useful references
+## Useful documentation
 
 1. [NestJS documentation](https://docs.nestjs.com)
 2. [Better Auth documentation](https://better-auth.com/docs)
-3. [NestJS Better Auth integration](https://github.com/ThallesP/nestjs-better-auth)
+3. [NestJS Better Auth integration](https://github.com/thallesp/nestjs-better-auth)
 4. [Prisma documentation](https://www.prisma.io/docs)
 5. [Arcjet documentation](https://docs.arcjet.com)
 6. [NestJS Observe](https://observe.nestjs.com)
 
 ## License
 
-This project is private and currently has no public license.
+This project is private and does not currently declare a public license.
