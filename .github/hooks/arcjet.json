@@ -1,0 +1,101 @@
+// {
+//   "version": 1,
+//   "hooks": {
+//     "preToolUse": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=pre-tool-use",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "permissionRequest": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=permission-request",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "userPromptSubmitted": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=user-prompt-submit",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "userPromptTransformed": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=user-prompt-transformed",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "postToolUse": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=post-tool-use",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "agentStop": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=stop",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "sessionStart": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=session-start",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ],
+//     "sessionEnd": [
+//       {
+//         "type": "http",
+//         "url": "https://decide.arcjet.com/v1/agent-hooks/copilot?event=session-end",
+//         "headers": {
+//           "Authorization": "Bearer $ARCJET_KEY",
+//           "X-Arcjet-Principal": "$USER"
+//         },
+//         "allowedEnvVars": ["ARCJET_KEY", "USER"],
+//         "timeoutSec": 5
+//       }
+//     ]
+//   }
+// }
